@@ -83,7 +83,7 @@ class DiffBotSystemHardware : public hardware_interface::SystemInterface {
   // Parameters for the DiffBot simulation
   double hw_start_sec_;
   double hw_stop_sec_;
-//   GpiodPidController wheel_driver;
+  GpiodPidController wheel_driver;
 };
 
 }  // namespace ros2_control_demo_example_2

@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.16)
 project(ros2_control_demo_example_2 LANGUAGES CXX)
 
 if(CMAKE_CXX_COMPILER_ID MATCHES "(GNU|Clang)")
-  add_compile_options(-Wall -Wextra -lgpiod)
+  add_compile_options(-Wall -Wextra)
 endif()
 
 # set the same behavior for windows as it is on linux
@@ -47,6 +47,8 @@ ament_target_dependencies(
   ros2_control_demo_example_2 PUBLIC
   ${THIS_PACKAGE_INCLUDE_DEPENDS}
 )
+
+target_link_libraries(ros2_control_demo_example_2 PRIVATE gpiod)
 
 # Export hardware plugins
 pluginlib_export_plugin_description_file(hardware_interface ros2_control_demo_example_2.xml)
