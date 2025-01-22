@@ -198,7 +198,7 @@ hardware_interface::return_type ros2_control_demo_example_2 ::DiffBotSystemHardw
 
     if (name == "right_wheel_joint/velocity") {
       wheel_driver.set_vel_r(get_command(name));
-    } else if (name == "left_wheel_joint/position") {
+    } else if (name == "left_wheel_joint/velocity") {
       wheel_driver.set_vel_l(get_command(name));
     }
 
