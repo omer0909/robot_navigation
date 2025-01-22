@@ -168,7 +168,7 @@ hardware_interface::return_type DiffBotSystemHardware::read(
         encoder_data = wheel_driver.get_pos_r();
       } else if (name == "left_wheel_joint/position") {
         selected_data = true;
-        encoder_data = wheel_driver.get_pos_r();
+        encoder_data = wheel_driver.get_pos_l();
       }
       if (selected_data) {
         double data = encoder_data / (240.0 / (2.0 * M_PI));

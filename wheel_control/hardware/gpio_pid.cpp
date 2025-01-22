@@ -58,8 +58,8 @@ GpiodPidController::GpiodPidController() {
     exit(1);
   }
 
-  motor_dir_l = gpiod_chip_get_line(chip, 19);
-  motor_dir_r = gpiod_chip_get_line(chip, 16);
+  motor_dir_l = gpiod_chip_get_line(chip, 16);
+  motor_dir_r = gpiod_chip_get_line(chip, 19);
 
   gpiod_line_request_output(motor_dir_l, "left_motor_dir", 0);
   gpiod_line_request_output(motor_dir_r, "right_motor_dir", 0);
