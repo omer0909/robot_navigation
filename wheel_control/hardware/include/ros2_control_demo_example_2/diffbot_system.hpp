@@ -35,12 +35,36 @@
 #include "rclcpp_lifecycle/state.hpp"
 
 namespace ros2_control_demo_example_2 {
+
+class PWM {
+ public:
+  enum Channel {
+    Pwm0,
+    Pwm1
+  };
+
+  PWM(Channel channel_);
+
+  void set_duty(double duty);
+
+  ~PWM();
+
+ private:
+  void writeToFile(const std::string& path, const std::string& value);
+
+  std::string chip = "/sys/class/pwm/pwmchip2";
+  std::string path;
+  Channel channel;
+};
+
 class GpiodPidController {
  public:
   void set_vel_r(double vel);
   void set_vel_l(double vel);
   int64_t get_pos_r();
   int64_t get_pos_l();
+  void set_duty_r(double duty);
+  void set_duty_l(double duty);
   GpiodPidController();
   ~GpiodPidController();
 
@@ -55,6 +79,10 @@ class GpiodPidController {
   std::thread encoder_listener_thread;
   std::thread pid_controller_thread;
   gpiod_chip* chip;
+  gpiod_line* motor_dir_l;
+  gpiod_line* motor_dir_r;
+  PWM motor_pwm_l{PWM::Channel::Pwm0};
+  PWM motor_pwm_r{PWM::Channel::Pwm1};
 };
 
 class DiffBotSystemHardware : public hardware_interface::SystemInterface {

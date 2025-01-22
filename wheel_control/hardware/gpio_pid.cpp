@@ -1,8 +1,38 @@
+#include <fstream>
 #include <iostream>
 
 #include "ros2_control_demo_example_2/diffbot_system.hpp"
 
 namespace ros2_control_demo_example_2 {
+
+PWM::PWM(Channel channel_) : channel(channel_) {
+  writeToFile(chip + "/export", channel == Channel::Pwm0 ? "0" : "1");
+  path = chip + "/pwm" + (channel == Channel::Pwm0 ? "0" : "1");
+  writeToFile(path + "/period", "100000");
+  set_duty(0);
+  writeToFile(path + "/enable", "1");
+}
+
+void PWM::set_duty(double duty) {
+  writeToFile(path + "/duty_cycle", std::to_string((int)(100000 * duty)));
+}
+
+PWM::~PWM() {
+  set_duty(0);
+  set_duty(0);
+  writeToFile(path + "/enable", "0");
+  writeToFile(chip + "/unexport", (channel == Channel::Pwm0 ? "0" : "1"));
+}
+
+void PWM::writeToFile(const std::string& path, const std::string& value) {
+  std::ofstream file(path);
+  if (!file.is_open()) {
+    std::cerr << "Can not write: " << path << std::endl;
+    exit(1);
+  }
+  file << value;
+  file.close();
+}
 
 void GpiodPidController::set_vel_r(double vel) {
   pos_r += vel;
@@ -27,6 +57,12 @@ GpiodPidController::GpiodPidController() {
     exit(1);
   }
 
+  motor_dir_l = gpiod_chip_get_line(chip, 19);
+  motor_dir_r = gpiod_chip_get_line(chip, 16);
+
+  gpiod_line_request_output(motor_dir_l, "left_motor_dir", 0);
+  gpiod_line_request_output(motor_dir_r, "right_motor_dir", 0);
+
   std::cout << "GPIO chip opened successfully." << std::endl;
 
   encoder_listener_thread = std::thread(&GpiodPidController::encoder_listener, this);
@@ -37,6 +73,12 @@ GpiodPidController::~GpiodPidController() {
   active = false;
   pid_controller_thread.join();
   encoder_listener_thread.join();
+
+  gpiod_line_set_value(motor_dir_l, 0);
+  gpiod_line_set_value(motor_dir_r, 0);
+  gpiod_line_release(motor_dir_l);
+  gpiod_line_release(motor_dir_r);
+
   gpiod_chip_close(chip);
 }
 
@@ -93,31 +135,33 @@ void GpiodPidController::encoder_listener() {
 
     for (size_t i = 0; i < lines.size(); ++i) {
       int fd = gpiod_line_event_get_fd(lines[i]);
-      if (FD_ISSET(fd, &fds)) {
-        if (gpiod_line_event_read(lines[i], &event) == 0 && (event.event_type == GPIOD_LINE_EVENT_RISING_EDGE || event.event_type == GPIOD_LINE_EVENT_FALLING_EDGE)) {
-          bool detected = event.event_type == GPIOD_LINE_EVENT_RISING_EDGE;
-          int pin = pin_offsets[i];
+      if (FD_ISSET(fd, &fds) && gpiod_line_event_read(lines[i], &event) == 0 && (event.event_type == GPIOD_LINE_EVENT_RISING_EDGE || event.event_type == GPIOD_LINE_EVENT_FALLING_EDGE)) {
+        bool detected = event.event_type == GPIOD_LINE_EVENT_RISING_EDGE;
+        int pin = pin_offsets[i];
 
-          if (pin == LEFT_PIN1 || pin == LEFT_PIN2) {
-            if (pin == LEFT_PIN1) {
-              left_sensor_1 = detected;
-              pos_l += (left_sensor_1 == left_sensor_2) ? -1 : 1;
-            } else {
-              left_sensor_2 = detected;
-              pos_l += (left_sensor_1 == left_sensor_2) ? 1 : -1;
-            }
+        if (pin == LEFT_PIN1 || pin == LEFT_PIN2) {
+          if (pin == LEFT_PIN1) {
+            left_sensor_1 = detected;
+            pos_l += (left_sensor_1 == left_sensor_2) ? -1 : 1;
           } else {
-            if (pin == RIGHT_PIN1) {
-              right_sensor_1 = detected;
-              pos_r += (right_sensor_1 == right_sensor_2) ? -1 : 1;
-            } else {
-              right_sensor_2 = detected;
-              pos_r += (right_sensor_1 == right_sensor_2) ? 1 : -1;
-            }
+            left_sensor_2 = detected;
+            pos_l += (left_sensor_1 == left_sensor_2) ? 1 : -1;
+          }
+        } else {
+          if (pin == RIGHT_PIN1) {
+            right_sensor_1 = detected;
+            pos_r += (right_sensor_1 == right_sensor_2) ? -1 : 1;
+          } else {
+            right_sensor_2 = detected;
+            pos_r += (right_sensor_1 == right_sensor_2) ? 1 : -1;
           }
         }
       }
     }
+  }
+
+  for (auto& line : lines) {
+    gpiod_line_release(line);
   }
 }
 
@@ -125,7 +169,28 @@ void GpiodPidController::pid_controller() {
   while (active) {
     std::cout << "left_angle: " << pos_l << std::endl;
     std::cout << "right_angle: " << pos_r << std::endl;
+    set_duty_r(0.2);
     std::this_thread::sleep_for(std::chrono::microseconds(100));
+  }
+}
+
+void GpiodPidController::set_duty_l(double duty) {
+  if (duty < 0) {
+    gpiod_line_set_value(motor_dir_l, 0);
+    motor_pwm_l.set_duty(duty);
+  } else {
+    gpiod_line_set_value(motor_dir_l, 1);
+    motor_pwm_l.set_duty(1.0 - duty);
+  }
+}
+
+void GpiodPidController::set_duty_r(double duty) {
+  if (duty < 0) {
+    gpiod_line_set_value(motor_dir_r, 0);
+    motor_pwm_r.set_duty(duty);
+  } else {
+    gpiod_line_set_value(motor_dir_r, 1);
+    motor_pwm_r.set_duty(1.0 - duty);
   }
 }
 
