@@ -19,7 +19,6 @@ void PWM::set_duty(double duty) {
 
 PWM::~PWM() {
   set_duty(0);
-  set_duty(0);
   writeToFile(path + "/enable", "0");
   writeToFile(chip + "/unexport", (channel == Channel::Pwm0 ? "0" : "1"));
 }
@@ -169,28 +168,28 @@ void GpiodPidController::pid_controller() {
   while (active) {
     std::cout << "left_angle: " << pos_l << std::endl;
     std::cout << "right_angle: " << pos_r << std::endl;
-    set_duty_r(0.2);
+    set_duty_l(0.2);
     std::this_thread::sleep_for(std::chrono::microseconds(100));
   }
 }
 
 void GpiodPidController::set_duty_l(double duty) {
   if (duty < 0) {
+    gpiod_line_set_value(motor_dir_l, 1);
+    motor_pwm_l.set_duty(1.0 + duty);
+  } else {
     gpiod_line_set_value(motor_dir_l, 0);
     motor_pwm_l.set_duty(duty);
-  } else {
-    gpiod_line_set_value(motor_dir_l, 1);
-    motor_pwm_l.set_duty(1.0 - duty);
   }
 }
 
 void GpiodPidController::set_duty_r(double duty) {
   if (duty < 0) {
+    gpiod_line_set_value(motor_dir_r, 1);
+    motor_pwm_r.set_duty(1.0 + duty);
+  } else {
     gpiod_line_set_value(motor_dir_r, 0);
     motor_pwm_r.set_duty(duty);
-  } else {
-    gpiod_line_set_value(motor_dir_r, 1);
-    motor_pwm_r.set_duty(1.0 - duty);
   }
 }
 
