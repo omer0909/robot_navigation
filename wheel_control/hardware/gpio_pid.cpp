@@ -168,8 +168,8 @@ void GpiodPidController::encoder_listener() {
 
 void GpiodPidController::pid_controller() {
   while (active) {
-    std::cout << "left_angle: " << pos_l << std::endl;
-    std::cout << "right_angle: " << pos_r << std::endl;
+    // std::cout << "left_angle: " << pos_l << std::endl;
+    // std::cout << "right_angle: " << pos_r << std::endl;
     set_duty_l(0.02 * vel_l);
     set_duty_r(0.02 * vel_r);
     std::this_thread::sleep_for(std::chrono::microseconds(100));
