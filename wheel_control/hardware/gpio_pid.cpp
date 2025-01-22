@@ -1,5 +1,6 @@
 #include <fstream>
 #include <iostream>
+#include <math.h>
 
 #include "ros2_control_demo_example_2/diffbot_system.hpp"
 
@@ -14,6 +15,7 @@ PWM::PWM(Channel channel_) : channel(channel_) {
 }
 
 void PWM::set_duty(double duty) {
+  duty = std::max(0.0, std::min(1.0, duty));
   writeToFile(path + "/duty_cycle", std::to_string((int)(100000 * duty)));
 }
 
@@ -34,11 +36,11 @@ void PWM::writeToFile(const std::string& path, const std::string& value) {
 }
 
 void GpiodPidController::set_vel_r(double vel) {
-  pos_r += vel;
+  vel_r = vel;
 }
 
 void GpiodPidController::set_vel_l(double vel) {
-  pos_l += vel;
+  vel_l = vel;
 }
 
 int64_t GpiodPidController::get_pos_r() {
@@ -168,7 +170,8 @@ void GpiodPidController::pid_controller() {
   while (active) {
     std::cout << "left_angle: " << pos_l << std::endl;
     std::cout << "right_angle: " << pos_r << std::endl;
-    set_duty_l(0.2);
+    set_duty_l(0.02 * vel_l);
+    set_duty_r(0.02 * vel_r);
     std::this_thread::sleep_for(std::chrono::microseconds(100));
   }
 }

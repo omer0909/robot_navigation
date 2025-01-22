@@ -30,7 +30,7 @@ def generate_launch_description():
             os.path.join(get_package_share_directory('ros2_control_demo_example_2'), 'launch',
                          'diffbot.launch.py')))
 
-    # ld.add_action(lidar_sensor)
+    ld.add_action(lidar_sensor)
     ld.add_action(rosbridge)
     ld.add_action(robot_description)
     ld.add_action(wheel_controller)

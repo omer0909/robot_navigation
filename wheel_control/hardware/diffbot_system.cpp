@@ -160,11 +160,25 @@ hardware_interface::return_type DiffBotSystemHardware::read(
       // Simulate DiffBot wheels's movement as a first-order system
       // Update the joint status: this is a revolute joint without any limit.
       // Simply integrates
-      auto velo = get_command(descr.get_prefix_name() + "/" + hardware_interface::HW_IF_VELOCITY);
-      set_state(name, get_state(name) + period.seconds() * velo);
+
+      bool selected_data = false;
+      int64_t encoder_data;
+      if (name == "right_wheel_joint/position") {
+        selected_data = true;
+        encoder_data = wheel_driver.get_pos_r();
+      } else if (name == "left_wheel_joint/position") {
+        selected_data = true;
+        encoder_data = wheel_driver.get_pos_r();
+      }
+      if (selected_data) {
+        double data = encoder_data / (240.0 / (2.0 * M_PI));
+        set_state(name, data);
+      }
+      // auto velo = get_command(descr.get_prefix_name() + "/" + hardware_interface::HW_IF_VELOCITY);
+      // set_state(name, get_state(name) + period.seconds() * velo);
 
       ss << std::endl
-         << "\t position " << get_state(name) << " and velocity " << velo << " for '" << name
+         << "\t position " << get_state(name) << " and for '" << name
          << "'!";
     }
   }
@@ -181,6 +195,13 @@ hardware_interface::return_type ros2_control_demo_example_2 ::DiffBotSystemHardw
   ss << "Writing commands:";
   for (const auto& [name, descr] : joint_command_interfaces_) {
     // Simulate sending commands to the hardware
+
+    if (name == "right_wheel_joint/velocity") {
+      wheel_driver.set_vel_r(get_command(name));
+    } else if (name == "left_wheel_joint/position") {
+      wheel_driver.set_vel_l(get_command(name));
+    }
+
     set_state(name, get_command(name));
 
     ss << std::fixed << std::setprecision(2) << std::endl

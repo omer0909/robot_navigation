@@ -72,6 +72,8 @@ class GpiodPidController {
   std::atomic_bool active = true;
   std::atomic_int64_t pos_l = 0;
   std::atomic_int64_t pos_r = 0;
+  std::atomic_int64_t vel_l = 0;
+  std::atomic_int64_t vel_r = 0;
 
   void encoder_listener();
   void pid_controller();
