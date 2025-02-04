@@ -1,6 +1,7 @@
+#include <math.h>
+
 #include <fstream>
 #include <iostream>
-#include <math.h>
 
 #include "ros2_control_demo_example_2/diffbot_system.hpp"
 
@@ -66,6 +67,7 @@ GpiodPidController::GpiodPidController() {
 
   std::cout << "GPIO chip opened successfully." << std::endl;
 
+  last_time = std::chrono::steady_clock::now();
   encoder_listener_thread = std::thread(&GpiodPidController::encoder_listener, this);
   pid_controller_thread = std::thread(&GpiodPidController::pid_controller, this);
 }
@@ -167,16 +169,46 @@ void GpiodPidController::encoder_listener() {
 }
 
 void GpiodPidController::pid_controller() {
+  double integral_l = 0.0, prev_error_l = 0.0;
+  double integral_r = 0.0, prev_error_r = 0.0;
+
   while (active) {
-    // std::cout << "left_angle: " << pos_l << std::endl;
-    // std::cout << "right_angle: " << pos_r << std::endl;
-    set_duty_l(0.02 * vel_l);
-    set_duty_r(0.02 * vel_r);
-    std::this_thread::sleep_for(std::chrono::microseconds(100));
+    auto now = std::chrono::steady_clock::now();
+    std::chrono::duration<double> elapsed = now - last_time;
+    double delta_sec = elapsed.count();
+    last_time = now;
+
+    target_pos_l += vel_l * delta_sec;
+    target_pos_r += vel_r * delta_sec;
+
+    // left
+    double output_l;
+    {
+      double error_l = target_pos_l - pos_l;
+      integral_l += error_l * delta_sec;
+      double derivative_l = (delta_sec > 0.0) ? ((error_l - prev_error_l) / delta_sec) : 0.0;
+      output_l = kp * error_l + ki * integral_l + kd * derivative_l;
+      prev_error_l = error_l;
+    }
+
+    // left
+    double output_r;
+    {
+      double error_r = target_pos_r - pos_r;
+      integral_r += error_r * delta_sec;
+      double derivative_r = (delta_sec > 0.0) ? ((error_r - prev_error_r) / delta_sec) : 0.0;
+      output_r = kp * error_r + ki * integral_r + kd * derivative_r;
+      prev_error_r = error_r;
+    }
+
+    set_duty_l(output_l);
+    set_duty_r(output_r);
+    std::this_thread::sleep_for(std::chrono::microseconds(1000));
   }
 }
 
 void GpiodPidController::set_duty_l(double duty) {
+  duty = std::min(DUTY_MAX, std::max(-DUTY_MAX, duty));
   if (duty < 0) {
     gpiod_line_set_value(motor_dir_l, 1);
     motor_pwm_l.set_duty(1.0 + duty);
@@ -187,6 +219,7 @@ void GpiodPidController::set_duty_l(double duty) {
 }
 
 void GpiodPidController::set_duty_r(double duty) {
+  duty = std::min(DUTY_MAX, std::max(-DUTY_MAX, duty));
   if (duty < 0) {
     gpiod_line_set_value(motor_dir_r, 1);
     motor_pwm_r.set_duty(1.0 + duty);

@@ -69,11 +69,19 @@ class GpiodPidController {
   ~GpiodPidController();
 
  private:
+  constexpr static double DUTY_MAX = 0.2;
   std::atomic_bool active = true;
   std::atomic_int64_t pos_l = 0;
   std::atomic_int64_t pos_r = 0;
-  std::atomic_int64_t vel_l = 0;
-  std::atomic_int64_t vel_r = 0;
+  double target_pos_l = 0;
+  double target_pos_r = 0;
+  std::atomic<double> vel_l = 0;
+  std::atomic<double> vel_r = 0;
+  std::chrono::steady_clock::time_point last_time;
+
+  constexpr static double kp = 1.0;
+  constexpr static double ki = 0.1;
+  constexpr static double kd = 0.05;
 
   void encoder_listener();
   void pid_controller();

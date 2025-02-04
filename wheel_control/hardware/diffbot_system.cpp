@@ -150,7 +150,7 @@ hardware_interface::CallbackReturn DiffBotSystemHardware::on_deactivate(
 }
 
 hardware_interface::return_type DiffBotSystemHardware::read(
-    const rclcpp::Time& /*time*/, const rclcpp::Duration& period) {
+    const rclcpp::Time& /*time*/, const rclcpp::Duration&) {
   // BEGIN: This part here is for exemplary purposes - Please do not copy to your production code
   std::stringstream ss;
   ss << "Reading states:";
