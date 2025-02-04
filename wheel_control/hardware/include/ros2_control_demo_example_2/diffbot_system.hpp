@@ -91,8 +91,8 @@ class GpiodPidController {
   gpiod_chip* chip;
   gpiod_line* motor_dir_l;
   gpiod_line* motor_dir_r;
-  PWM motor_pwm_l{PWM::Channel::Pwm0};
-  PWM motor_pwm_r{PWM::Channel::Pwm1};
+  PWM motor_pwm_l{PWM::Channel::Pwm1};
+  PWM motor_pwm_r{PWM::Channel::Pwm0};
 };
 
 class DiffBotSystemHardware : public hardware_interface::SystemInterface {

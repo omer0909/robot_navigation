@@ -59,8 +59,8 @@ GpiodPidController::GpiodPidController() {
     exit(1);
   }
 
-  motor_dir_l = gpiod_chip_get_line(chip, 16);
-  motor_dir_r = gpiod_chip_get_line(chip, 19);
+  motor_dir_l = gpiod_chip_get_line(chip, 19);
+  motor_dir_r = gpiod_chip_get_line(chip, 16);
 
   gpiod_line_request_output(motor_dir_l, "left_motor_dir", 0);
   gpiod_line_request_output(motor_dir_r, "right_motor_dir", 0);
@@ -191,7 +191,7 @@ void GpiodPidController::pid_controller() {
       prev_error_l = error_l;
     }
 
-    // left
+    // right
     double output_r;
     {
       double error_r = target_pos_r - pos_r;
@@ -201,8 +201,8 @@ void GpiodPidController::pid_controller() {
       prev_error_r = error_r;
     }
 
-    set_duty_l(output_l);
-    set_duty_r(output_r);
+    set_duty_l(output_l * 0.002);
+    set_duty_r(output_r * 0.002);
     std::this_thread::sleep_for(std::chrono::microseconds(1000));
   }
 }
