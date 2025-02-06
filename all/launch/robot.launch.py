@@ -29,10 +29,16 @@ def generate_launch_description():
         PythonLaunchDescriptionSource(
             os.path.join(get_package_share_directory('ros2_control_demo_example_2'), 'launch',
                          'diffbot.launch.py')))
+    
+    nav2_slam = IncludeLaunchDescription(
+        PythonLaunchDescriptionSource(
+            os.path.join(get_package_share_directory('nav2_minimal'), 'launch',
+                         'navigation_sim_slam.launch.py')))
 
     ld.add_action(lidar_sensor)
     ld.add_action(rosbridge)
     ld.add_action(robot_description)
     ld.add_action(wheel_controller)
+    ld.add_action(nav2_slam)
 
     return ld
