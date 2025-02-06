@@ -178,8 +178,8 @@ void GpiodPidController::pid_controller() {
     double delta_sec = elapsed.count();
     last_time = now;
 
-    target_pos_l += vel_l * delta_sec;
-    target_pos_r += vel_r * delta_sec;
+    target_pos_l += vel_l * delta_sec * (240.0 / (2.0 * M_PI));
+    target_pos_r += vel_r * delta_sec * (240.0 / (2.0 * M_PI));
 
     // left
     double output_l;
