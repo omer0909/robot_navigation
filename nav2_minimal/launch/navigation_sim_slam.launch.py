@@ -6,6 +6,7 @@ from launch.launch_description_sources import PythonLaunchDescriptionSource
 from ament_index_python.packages import get_package_share_directory
 from launch.substitutions import LaunchConfiguration
 import launch_ros
+from launch.actions import TimerAction
 
 def generate_launch_description():
     pkg_share = get_package_share_directory('nav2_minimal')
@@ -23,6 +24,11 @@ def generate_launch_description():
         name='rviz2',
         output='screen',
         arguments=['-d', '/opt/ros/jazzy/share/nav2_bringup/rviz/nav2_default_view.rviz'],
+    )
+
+    delayed_rviz = TimerAction(
+        period=5.0,  # Gecikme süresi (saniye cinsinden)
+        actions=[open_rviz]
     )
 
     robot_localization_node = launch_ros.actions.Node(
@@ -54,5 +60,5 @@ def generate_launch_description():
         # robot_localization_node,
         launch_slam_toolbox,
         launch_nav2,
-        open_rviz
+        delayed_rviz
     ])
