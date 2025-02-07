@@ -74,6 +74,11 @@ def generate_launch_description():
         package="controller_manager",
         executable="ros2_control_node",
         parameters=[robot_controllers],
+        remappings=[
+            ('/diffbot_base_controller/cmd_vel', '/cmd_vel'),
+            ('/diffbot_base_controller/odom', '/odom'),
+            ('/diffbot_base_controller/transition_event', '/transition_event'),
+        ],
         output="both",
     )
     robot_state_pub_node = Node(
