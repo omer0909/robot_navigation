@@ -129,12 +129,18 @@ def generate_launch_description():
         )
     )
 
+    converter = Node(
+        package="ros2_control_demo_example_2",
+        executable="converter_node",
+    )
+
     nodes = [
         control_node,
         # robot_state_pub_node,
         robot_controller_spawner,
         # delay_rviz_after_joint_state_broadcaster_spawner,
         delay_joint_state_broadcaster_after_robot_controller_spawner,
+        converter,
     ]
 
     return LaunchDescription(declared_arguments + nodes)
