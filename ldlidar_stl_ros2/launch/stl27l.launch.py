@@ -37,7 +37,8 @@ def generate_launch_description():
         {'laser_scan_dir': False},
         {'enable_angle_crop_func': False},
         {'angle_crop_min': 0.0},
-        {'angle_crop_max': 0.0}
+        {'angle_crop_max': 0.0},
+        {"angle_crop_min": 0.2}
       ]
   )
 
