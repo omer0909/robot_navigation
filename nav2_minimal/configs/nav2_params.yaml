@@ -363,7 +363,7 @@ collision_monitor:
 bt_navigator:
   ros__parameters:
     use_sim_time: true
-    # enable_stamped_cmd_vel: true
+    enable_stamped_cmd_vel: true
     global_frame: map
     robot_base_frame: base_link
     odom_topic: odom
@@ -383,7 +383,7 @@ bt_navigator:
 docking_server:
   ros__parameters:
     use_sim_time: true
-    # enable_stamped_cmd_vel: true
+    enable_stamped_cmd_vel: true
     controller_frequency: 50.0
     initial_perception_timeout: 5.0
     wait_charge_timeout: 5.0
