@@ -25,6 +25,7 @@ if(NOT controller_manager_FOUND)
 endif()
 
 # find dependencies
+find_package(std_msgs REQUIRED)
 find_package(backward_ros REQUIRED)
 find_package(ament_cmake REQUIRED)
 foreach(Dependency IN ITEMS ${THIS_PACKAGE_INCLUDE_DEPENDS})
@@ -50,8 +51,15 @@ ament_target_dependencies(
 
 target_link_libraries(ros2_control_demo_example_2 PRIVATE gpiod)
 
+add_executable(converter_node src/converter.cpp)
+ament_target_dependencies(converter_node rclcpp geometry_msgs)
+
 # Export hardware plugins
 pluginlib_export_plugin_description_file(hardware_interface ros2_control_demo_example_2.xml)
+
+install(TARGETS
+  converter_node
+  DESTINATION lib/${PROJECT_NAME})
 
 # INSTALL
 install(
