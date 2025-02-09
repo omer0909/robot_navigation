@@ -36,19 +36,19 @@ void PWM::writeToFile(const std::string& path, const std::string& value) {
   file.close();
 }
 
-void GpiodPidController::set_vel_r(double vel) {
+void GpiodPidController::set_vel_l(double vel) {
   vel_r = vel;
 }
 
-void GpiodPidController::set_vel_l(double vel) {
+void GpiodPidController::set_vel_r(double vel) {
   vel_l = vel;
 }
 
-int64_t GpiodPidController::get_pos_r() {
+int64_t GpiodPidController::get_pos_l() {
   return pos_r;
 }
 
-int64_t GpiodPidController::get_pos_l() {
+int64_t GpiodPidController::get_pos_r() {
   return pos_l;
 }
 
