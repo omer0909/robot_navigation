@@ -162,7 +162,7 @@ hardware_interface::return_type DiffBotSystemHardware::read(
       // Simply integrates
 
       bool selected_data = false;
-      int64_t encoder_data;
+      double encoder_data;
       if (name == "right_wheel_joint/position") {
         selected_data = true;
         encoder_data = wheel_driver.get_pos_r();
@@ -171,8 +171,7 @@ hardware_interface::return_type DiffBotSystemHardware::read(
         encoder_data = wheel_driver.get_pos_l();
       }
       if (selected_data) {
-        double data = encoder_data / (240.0 / (2.0 * M_PI));
-        set_state(name, data);
+        set_state(name, encoder_data);
       }
       // auto velo = get_command(descr.get_prefix_name() + "/" + hardware_interface::HW_IF_VELOCITY);
       // set_state(name, get_state(name) + period.seconds() * velo);

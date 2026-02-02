@@ -113,7 +113,7 @@ Visualization Manager:
           Value: false
         right_wheel:
           Value: true
-        rplidar_link:
+        base_laser:
           Value: true
         shell_link:
           Value: false
@@ -176,7 +176,7 @@ Visualization Manager:
               {}
             rear_right_tower_standoff:
               {}
-            rplidar_link:
+            base_laser:
               {}
             tower_sensor_plate:
               {}
@@ -333,7 +333,7 @@ Visualization Manager:
           Show Axes: false
           Show Trail: false
           Value: true
-        rplidar_link:
+        base_laser:
           Alpha: 1
           Show Axes: false
           Show Trail: false

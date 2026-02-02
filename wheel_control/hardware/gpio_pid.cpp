@@ -3,6 +3,18 @@
 #include <fstream>
 #include <iostream>
 
+#include <gpiod.h>
+#include <string>
+#include <thread>
+#include <atomic>
+#include <fcntl.h>
+#include <unistd.h>
+#include <sys/ioctl.h>
+#include <linux/i2c-dev.h>
+#include <cstdio>
+#include <cmath>
+
+
 #include "ros2_control_demo_example_2/diffbot_system.hpp"
 
 namespace ros2_control_demo_example_2 {
@@ -36,23 +48,8 @@ void PWM::writeToFile(const std::string& path, const std::string& value) {
   file.close();
 }
 
-void GpiodPidController::set_vel_l(double vel) {
-  vel_r = vel;
-}
 
-void GpiodPidController::set_vel_r(double vel) {
-  vel_l = vel;
-}
-
-int64_t GpiodPidController::get_pos_l() {
-  return pos_r;
-}
-
-int64_t GpiodPidController::get_pos_r() {
-  return pos_l;
-}
-
-GpiodPidController::GpiodPidController() {
+Motor::Motor(){
   chip = gpiod_chip_open_by_name("gpiochip0");
   if (!chip) {
     std::cout << "GPIO chip could not be opened!" << std::endl;
@@ -67,15 +64,112 @@ GpiodPidController::GpiodPidController() {
 
   std::cout << "GPIO chip opened successfully." << std::endl;
 
-  last_time = std::chrono::steady_clock::now();
-  encoder_listener_thread = std::thread(&GpiodPidController::encoder_listener, this);
-  pid_controller_thread = std::thread(&GpiodPidController::pid_controller, this);
+  encoder_listener_thread_l = std::thread(&Motor::encoder_listener_l, this);
+  encoder_listener_thread_r = std::thread(&Motor::encoder_listener_r, this);
 }
 
-GpiodPidController::~GpiodPidController() {
+void Motor::encoder_listener_l(){
+  int fd = open("/dev/i2c-0", O_RDWR);
+    if (fd < 0 || ioctl(fd, I2C_SLAVE, AS5600_ADDR) < 0) {
+        printf("Hata: I2C açılamadı veya sensör bulunamadı.\n");
+        return;
+    }
+
+    auto last_time = std::chrono::steady_clock::now();
+
+    int64_t last_raw_val = 0;
+    bool first_run = true;
+
+    uint8_t buffer[2];
+    uint8_t reg_addr = AS5600_REG_RAW_ANGLE;
+    while (active) {
+        write(fd, &reg_addr, 1);        
+        if (read(fd, buffer, 2) == 2) {
+            int raw_val = (buffer[0] << 8) | buffer[1];
+            if (first_run){
+              last_raw_val = raw_val;
+              last_time = std::chrono::steady_clock::now();
+              first_run = false;
+              continue;
+            }
+
+            auto now = std::chrono::steady_clock::now();
+            std::chrono::duration<double> dt_duration = now - last_time;
+            double dt = dt_duration.count();
+            last_time = now;
+
+            int diff = raw_val - last_raw_val;
+            if (diff > AS5600_RES / 2){
+              diff -= AS5600_RES;
+            } else if (diff < -AS5600_RES / 2){
+              diff += AS5600_RES;
+            }
+            pos_l += diff;
+            last_raw_val = raw_val;
+
+            double vel = diff / dt;
+
+            set_duty_l((-vel * DAMPING) + (target_pos_l - pos_l) * STIFFNESS);
+            double gear_ratio = 60.0 / 16.0;
+            target_pos_l += (target_vel_l / (2.0 * M_PI)) * gear_ratio * AS5600_RES * dt;
+          }
+    }
+    close(fd);
+}
+
+void Motor::encoder_listener_r(){
+    int fd = open("/dev/i2c-1", O_RDWR);
+    if (fd < 0 || ioctl(fd, I2C_SLAVE, AS5600_ADDR) < 0) {
+        printf("Hata: I2C açılamadı veya sensör bulunamadı.\n");
+        return;
+    }
+
+    auto last_time = std::chrono::steady_clock::now();
+
+    int64_t last_raw_val = 0;
+    bool first_run = true;
+
+    uint8_t buffer[2];
+    uint8_t reg_addr = AS5600_REG_RAW_ANGLE;
+    while (active) {
+        write(fd, &reg_addr, 1);        
+        if (read(fd, buffer, 2) == 2) {
+            int raw_val = (buffer[0] << 8) | buffer[1];
+            if (first_run){
+              last_raw_val = raw_val;
+              last_time = std::chrono::steady_clock::now();
+              first_run = false;
+              continue;
+            }
+
+            auto now = std::chrono::steady_clock::now();
+            std::chrono::duration<double> dt_duration = now - last_time;
+            double dt = dt_duration.count();
+            last_time = now;
+
+            int diff = raw_val - last_raw_val;
+            if (diff > AS5600_RES / 2){
+              diff -= AS5600_RES;
+            } else if (diff < -AS5600_RES / 2){
+              diff += AS5600_RES;
+            }
+            pos_r += diff;
+            last_raw_val = raw_val;
+
+            double vel = diff / dt;
+
+            set_duty_r((-vel * DAMPING) + (target_pos_r - pos_r) * STIFFNESS);
+            double gear_ratio = 60.0 / 16.0;
+            target_pos_r += (target_vel_r / (2.0 * M_PI)) * gear_ratio * AS5600_RES * dt;
+          }
+    }
+    close(fd);
+}
+
+Motor::~Motor(){
   active = false;
-  pid_controller_thread.join();
-  encoder_listener_thread.join();
+  encoder_listener_thread_l.join();
+  encoder_listener_thread_r.join();
 
   gpiod_line_set_value(motor_dir_l, 0);
   gpiod_line_set_value(motor_dir_r, 0);
@@ -85,129 +179,8 @@ GpiodPidController::~GpiodPidController() {
   gpiod_chip_close(chip);
 }
 
-void GpiodPidController::encoder_listener() {
-  const int LEFT_PIN1 = 4;
-  const int LEFT_PIN2 = 17;
-  const int RIGHT_PIN1 = 27;
-  const int RIGHT_PIN2 = 22;
 
-  std::vector<int> pin_offsets = {LEFT_PIN1, LEFT_PIN2, RIGHT_PIN1, RIGHT_PIN2};
-
-  bool left_sensor_1 = true;
-  bool left_sensor_2 = true;
-  bool right_sensor_1 = true;
-  bool right_sensor_2 = true;
-
-  std::vector<gpiod_line*> lines;
-  for (int offset : pin_offsets) {
-    gpiod_line* line = gpiod_chip_get_line(chip, offset);
-    if (!line) {
-      std::cout << "Pin " << offset << " için GPIO hattı alınamadı." << std::endl;
-      gpiod_chip_close(chip);
-      exit(1);
-    }
-    if (gpiod_line_request_both_edges_events(line, "gpiod-poll-example") < 0) {
-      std::cout << "Pin " << offset << " için olay isteği yapılamadı." << std::endl;
-      gpiod_chip_close(chip);
-      exit(1);
-    }
-    lines.push_back(line);
-  }
-
-  while (active) {
-    struct gpiod_line_event event;
-    constexpr int TIMEOUT_MS = 1000;
-    struct timeval timeout = {TIMEOUT_MS / 1000, (TIMEOUT_MS % 1000) * 1000};
-    fd_set fds;
-
-    FD_ZERO(&fds);
-    int max_fd = -1;
-    for (auto& line : lines) {
-      int fd = gpiod_line_event_get_fd(line);
-      FD_SET(fd, &fds);
-      if (fd > max_fd) max_fd = fd;
-    }
-
-    int ret = select(max_fd + 1, &fds, nullptr, nullptr, &timeout);
-    if (ret < 0) {
-      std::cerr << "select() çağrısı başarısız oldu." << std::endl;
-      exit(1);
-    } else if (ret == 0) {
-      continue;
-    }
-
-    for (size_t i = 0; i < lines.size(); ++i) {
-      int fd = gpiod_line_event_get_fd(lines[i]);
-      if (FD_ISSET(fd, &fds) && gpiod_line_event_read(lines[i], &event) == 0 && (event.event_type == GPIOD_LINE_EVENT_RISING_EDGE || event.event_type == GPIOD_LINE_EVENT_FALLING_EDGE)) {
-        bool detected = event.event_type == GPIOD_LINE_EVENT_RISING_EDGE;
-        int pin = pin_offsets[i];
-
-        if (pin == LEFT_PIN1 || pin == LEFT_PIN2) {
-          if (pin == LEFT_PIN1) {
-            left_sensor_1 = detected;
-            pos_l += (left_sensor_1 == left_sensor_2) ? -1 : 1;
-          } else {
-            left_sensor_2 = detected;
-            pos_l += (left_sensor_1 == left_sensor_2) ? 1 : -1;
-          }
-        } else {
-          if (pin == RIGHT_PIN1) {
-            right_sensor_1 = detected;
-            pos_r += (right_sensor_1 == right_sensor_2) ? -1 : 1;
-          } else {
-            right_sensor_2 = detected;
-            pos_r += (right_sensor_1 == right_sensor_2) ? 1 : -1;
-          }
-        }
-      }
-    }
-  }
-
-  for (auto& line : lines) {
-    gpiod_line_release(line);
-  }
-}
-
-void GpiodPidController::pid_controller() {
-  double integral_l = 0.0, prev_error_l = 0.0;
-  double integral_r = 0.0, prev_error_r = 0.0;
-
-  while (active) {
-    auto now = std::chrono::steady_clock::now();
-    std::chrono::duration<double> elapsed = now - last_time;
-    double delta_sec = elapsed.count();
-    last_time = now;
-
-    target_pos_l += vel_l * delta_sec * (240.0 / (2.0 * M_PI));
-    target_pos_r += vel_r * delta_sec * (240.0 / (2.0 * M_PI));
-
-    // left
-    double output_l;
-    {
-      double error_l = target_pos_l - pos_l;
-      integral_l += error_l * delta_sec;
-      double derivative_l = (delta_sec > 0.0) ? ((error_l - prev_error_l) / delta_sec) : 0.0;
-      output_l = kp * error_l + ki * integral_l + kd * derivative_l;
-      prev_error_l = error_l;
-    }
-
-    // right
-    double output_r;
-    {
-      double error_r = target_pos_r - pos_r;
-      integral_r += error_r * delta_sec;
-      double derivative_r = (delta_sec > 0.0) ? ((error_r - prev_error_r) / delta_sec) : 0.0;
-      output_r = kp * error_r + ki * integral_r + kd * derivative_r;
-      prev_error_r = error_r;
-    }
-
-    set_duty_l(output_l * 0.002);
-    set_duty_r(output_r * 0.002);
-    std::this_thread::sleep_for(std::chrono::microseconds(1000));
-  }
-}
-
-void GpiodPidController::set_duty_l(double duty) {
+void Motor::set_duty_l(double duty) {
   duty = std::min(DUTY_MAX, std::max(-DUTY_MAX, duty));
   if (duty < 0) {
     gpiod_line_set_value(motor_dir_l, 1);
@@ -218,7 +191,7 @@ void GpiodPidController::set_duty_l(double duty) {
   }
 }
 
-void GpiodPidController::set_duty_r(double duty) {
+void Motor::set_duty_r(double duty) {
   duty = std::min(DUTY_MAX, std::max(-DUTY_MAX, duty));
   if (duty < 0) {
     gpiod_line_set_value(motor_dir_r, 1);
@@ -229,166 +202,22 @@ void GpiodPidController::set_duty_r(double duty) {
   }
 }
 
+void Motor::set_vel_l(double vel) {
+  target_vel_l = -vel;
+}
+
+void Motor::set_vel_r(double vel) {
+  target_vel_r = vel;
+}
+
+double Motor::get_pos_l() {
+  double gear_ratio = 16.0 / 60.0;
+  return -(pos_l / (double)AS5600_RES) * gear_ratio * (2.0 * M_PI);
+}
+
+double Motor::get_pos_r() {
+  double gear_ratio = 16.0 / 60.0;
+  return (pos_r / (double)AS5600_RES) * gear_ratio * (2.0 * M_PI);
+}
+
 }  // namespace ros2_control_demo_example_2
-
-// #include <chrono>
-// #include <iostream>
-
-// class PIDController {
-//  private:
-//   double kp;  // Proportional gain
-//   double ki;  // Integral gain
-//   double kd;  // Derivative gain
-
-//   double prev_error;  // Önceki hata
-//   double integral;    // Integral terimi
-//   double dt;          // Örnekleme zamanı (saniye)
-//   std::chrono::steady_clock::time_point last_time;
-
-//  public:
-//   // Yapıcı
-//   PIDController(double kp, double ki, double kd, double dt)
-//       : kp(kp), ki(ki), kd(kd), dt(dt), prev_error(0.0), integral(0.0) {
-//     last_time = std::chrono::steady_clock::now();
-//   }
-
-//   // PID kontrol çıkışı hesaplama
-//   double calculate(double setpoint, double measured_value) {
-//     double error = setpoint - measured_value;
-
-//     // Zaman farkını hesapla
-//     auto now = std::chrono::steady_clock::now();
-//     double elapsed_time = std::chrono::duration<double>(now - last_time).count();
-//     last_time = now;
-
-//     // Integral ve türev hesaplama
-//     integral += error * elapsed_time;
-//     double derivative = (error - prev_error) / elapsed_time;
-
-//     // PID kontrolör formülü
-//     double output = kp * error + ki * integral + kd * derivative;
-
-//     // Önceki hatayı güncelle
-//     prev_error = error;
-
-//     return output;
-//   }
-// };
-
-// int main() {
-//   PIDController pid(1.0, 0.1, 0.05, 0.01);  // Kp, Ki, Kd ve örnekleme zamanı
-//   double setpoint = 100.0;                  // İstenen hedef değer
-//   double measured_value = 0.0;              // Başlangıçta ölçülen değer
-
-//   for (int i = 0; i < 100; ++i) {
-//     // PID kontrol çıkışını hesapla
-//     double control_output = pid.calculate(setpoint, measured_value);
-
-//     // Sistemi kontrol et (örnek olarak sadece çıktı ekleniyor)
-//     measured_value += control_output * 0.1;  // Sistemin tepkisini simüle et
-
-//     // Çıkışı yazdır
-//     std::cout << "Iteration: " << i
-//               << " Setpoint: " << setpoint
-//               << " Measured: " << measured_value
-//               << " Control Output: " << control_output << std::endl;
-//   }
-
-//   return 0;
-// }
-
-// #include <gpiod.h>
-// #include <unistd.h>  // For close()
-
-// #include <iostream>
-// #include <vector>
-
-// #define GPIO_CHIP_NAME "gpiochip0"  // GPIO çipi adı
-// #define TIMEOUT_MS 5000             // 5 saniye zaman aşımı
-
-// void handle_event(const gpiod_line_event& event, int line_offset) {
-//   // Olayın türüne göre işlem yap
-//   if (event.event_type == GPIOD_LINE_EVENT_RISING_EDGE) {
-//     std::cout << "Pin " << line_offset << " yükselen kenar algılandı." << std::endl;
-//   } else if (event.event_type == GPIOD_LINE_EVENT_FALLING_EDGE) {
-//     std::cout << "Pin " << line_offset << " düşen kenar algılandı." << std::endl;
-//   }
-// }
-
-// int main() {
-//   // GPIO pinlerini izlemek için liste
-//   std::vector<int> pin_offsets = {4, 17, 27, 22};  // İzlenecek pin numaraları
-
-//   // GPIO çipini aç
-//   gpiod_chip* chip = gpiod_chip_open_by_name(GPIO_CHIP_NAME);
-//   if (!chip) {
-//     std::cerr << "GPIO çipi açılamadı: " << GPIO_CHIP_NAME << std::endl;
-//     return 1;
-//   }
-
-//   // GPIO hatlarını yapılandır
-//   std::vector<gpiod_line*> lines;
-//   for (int offset : pin_offsets) {
-//     gpiod_line* line = gpiod_chip_get_line(chip, offset);
-//     if (!line) {
-//       std::cerr << "Pin " << offset << " için GPIO hattı alınamadı." << std::endl;
-//       gpiod_chip_close(chip);
-//       return 1;
-//     }
-//     if (gpiod_line_request_both_edges_events(line, "gpiod-poll-example") < 0) {
-//       std::cerr << "Pin " << offset << " için olay isteği yapılamadı." << std::endl;
-//       gpiod_chip_close(chip);
-//       return 1;
-//     }
-//     lines.push_back(line);
-//   }
-
-//   std::cout << "GPIO pinleri izleniyor... (Çıkış için Ctrl+C)" << std::endl;
-
-//   // Olay döngüsü
-//   while (true) {
-//     struct gpiod_line_event event;
-//     struct timeval timeout = {TIMEOUT_MS / 1000, (TIMEOUT_MS % 1000) * 1000};
-//     fd_set fds;
-
-//     // File descriptor setini oluştur
-//     FD_ZERO(&fds);
-//     int max_fd = -1;
-//     for (auto& line : lines) {
-//       int fd = gpiod_line_event_get_fd(line);
-//       FD_SET(fd, &fds);
-//       if (fd > max_fd) max_fd = fd;
-//     }
-
-//     // poll işlemi
-//     int ret = select(max_fd + 1, &fds, nullptr, nullptr, &timeout);
-//     if (ret < 0) {
-//       std::cerr << "select() çağrısı başarısız oldu." << std::endl;
-//       break;
-//     } else if (ret == 0) {
-//       // Zaman aşımı
-//       std::cout << "Zaman aşımı: hiçbir pin değişmedi." << std::endl;
-//       continue;
-//     }
-
-//     // Olay kontrolü
-//     for (size_t i = 0; i < lines.size(); ++i) {
-//       int fd = gpiod_line_event_get_fd(lines[i]);
-//       if (FD_ISSET(fd, &fds)) {
-//         if (gpiod_line_event_read(lines[i], &event) == 0) {
-//           handle_event(event, pin_offsets[i]);
-//         } else {
-//           std::cerr << "Olay okunamadı: Pin " << pin_offsets[i] << std::endl;
-//         }
-//       }
-//     }
-//   }
-
-//   // Kaynakları temizle
-//   for (auto& line : lines) {
-//     gpiod_line_release(line);
-//   }
-//   gpiod_chip_close(chip);
-
-//   return 0;
-// }

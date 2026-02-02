@@ -10,6 +10,7 @@ xhost +local:root
 docker run --name robot \
         --net=host \
         --device /dev/ttyUSB0 --device /dev/gpiochip0 \
+        --device /dev/i2c-0 --device /dev/i2c-1 \
         -v /sys/class/pwm/pwmchip2:/sys/class/pwm/pwmchip2 \
         --env="DISPLAY=$DISPLAY" \
         --env="QT_X11_NO_MITSHM=1" \

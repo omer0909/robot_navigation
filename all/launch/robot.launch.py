@@ -10,6 +10,11 @@ from launch.launch_description_sources import FrontendLaunchDescriptionSource
 def generate_launch_description():
     ld = LaunchDescription()
 
+    robot_description = IncludeLaunchDescription(
+        PythonLaunchDescriptionSource(
+            os.path.join(get_package_share_directory('nav2_minimal_description'), 'launch',
+                         'robot_description.launch.py')))
+
     lidar_sensor = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(
             os.path.join(get_package_share_directory('ldlidar_stl_ros2'), 'launch',
@@ -19,11 +24,6 @@ def generate_launch_description():
         FrontendLaunchDescriptionSource(
             os.path.join(get_package_share_directory('rosbridge_server'), 'launch',
                          'rosbridge_websocket_launch.xml')))
-
-    robot_description = IncludeLaunchDescription(
-        PythonLaunchDescriptionSource(
-            os.path.join(get_package_share_directory('nav2_minimal_description'), 'launch',
-                         'robot_description.launch.py')))
 
     wheel_controller = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(
@@ -35,9 +35,9 @@ def generate_launch_description():
             os.path.join(get_package_share_directory('nav2_minimal'), 'launch',
                          'navigation_sim_slam.launch.py')))
 
+    ld.add_action(robot_description)
     ld.add_action(lidar_sensor)
     ld.add_action(rosbridge)
-    ld.add_action(robot_description)
     ld.add_action(wheel_controller)
     ld.add_action(nav2_slam)
 

@@ -11,6 +11,6 @@ COPY . /workspace/src
 RUN . /opt/ros/jazzy/setup.sh && colcon build
 RUN echo ". /opt/ros/jazzy/setup.bash && . /workspace/install/setup.bash" >> ~/.bashrc
 
-# CMD ["bash", "-c", ". /opt/ros/jazzy/setup.bash && . /workspace/install/setup.bash && ros2 launch all robot.launch.py"]
+CMD ["bash", "-c", ". /opt/ros/jazzy/setup.bash && . /workspace/install/setup.bash && ros2 launch all robot.launch.py"]
 
-CMD ["bash"]
+# CMD ["bash"]

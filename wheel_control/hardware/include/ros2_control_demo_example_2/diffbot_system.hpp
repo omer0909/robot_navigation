@@ -57,40 +57,47 @@ class PWM {
   Channel channel;
 };
 
-class GpiodPidController {
- public:
+class Motor{
+  public:
+  constexpr static double DUTY_MAX = 0.15;
+  constexpr static int AS5600_ADDR = 0x36;
+  constexpr static uint8_t AS5600_REG_RAW_ANGLE = 0x0C;
+  constexpr static int AS5600_RES = 4096;
+
+  constexpr static double STIFFNESS = 0.001;
+  constexpr static double DAMPING = 0.000005;
+
   void set_vel_r(double vel);
   void set_vel_l(double vel);
-  int64_t get_pos_r();
-  int64_t get_pos_l();
+  double get_pos_r();
+  double get_pos_l();
   void set_duty_r(double duty);
   void set_duty_l(double duty);
-  GpiodPidController();
-  ~GpiodPidController();
-
- private:
-  constexpr static double DUTY_MAX = 0.2;
-  std::atomic_bool active = true;
-  std::atomic_int64_t pos_l = 0;
-  std::atomic_int64_t pos_r = 0;
+  Motor();
+  ~Motor();
+  
   double target_pos_l = 0;
   double target_pos_r = 0;
-  std::atomic<double> vel_l = 0;
-  std::atomic<double> vel_r = 0;
-  std::chrono::steady_clock::time_point last_time;
 
-  constexpr static double kp = 1.0;
-  constexpr static double ki = 0.1;
-  constexpr static double kd = 0.05;
 
-  void encoder_listener();
-  void pid_controller();
+  private:
+  std::atomic_bool active = true;
 
-  std::thread encoder_listener_thread;
-  std::thread pid_controller_thread;
+  std::atomic_int64_t pos_l = 0;
+  std::atomic_int64_t pos_r = 0;
+  std::atomic<double> target_vel_l = 0;
+  std::atomic<double> target_vel_r = 0;
+
+  void encoder_listener_l();
+  void encoder_listener_r();
+
+  std::thread encoder_listener_thread_l;
+  std::thread encoder_listener_thread_r;
+
   gpiod_chip* chip;
   gpiod_line* motor_dir_l;
   gpiod_line* motor_dir_r;
+  
   PWM motor_pwm_l{PWM::Channel::Pwm1};
   PWM motor_pwm_r{PWM::Channel::Pwm0};
 };
@@ -121,7 +128,7 @@ class DiffBotSystemHardware : public hardware_interface::SystemInterface {
   // Parameters for the DiffBot simulation
   double hw_start_sec_;
   double hw_stop_sec_;
-  GpiodPidController wheel_driver;
+  Motor wheel_driver;
 };
 
 }  // namespace ros2_control_demo_example_2

@@ -34,11 +34,10 @@ def generate_launch_description():
         {'frame_id': 'base_laser'},
         {'port_name': '/dev/ttyUSB0'},
         {'port_baudrate': 921600},
-        {'laser_scan_dir': False},
+        {'laser_scan_dir': True},
         {'enable_angle_crop_func': False},
-        {'angle_crop_min': 0.0},
-        {'angle_crop_max': 0.0},
-        {"angle_crop_min": 0.2}
+        {"angle_crop_min": 0.2},
+        {'angle_crop_max': 0.0}
       ]
   )
 
@@ -55,6 +54,6 @@ def generate_launch_description():
   ld = LaunchDescription()
 
   ld.add_action(ldlidar_node)
-  ld.add_action(base_link_to_laser_tf_node)
+  #ld.add_action(base_link_to_laser_tf_node)
 
   return ld

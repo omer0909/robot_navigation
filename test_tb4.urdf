@@ -617,10 +617,10 @@
     </gazebo>
     <joint name="rplidar_joint" type="fixed">
         <parent link="shell_link"/>
-        <child link="rplidar_link"/>
-        <origin rpy="0 0 1.5707963267948966" xyz="-0.04 0.0 0.098715"/>
+        <child link="base_laser"/>
+        <origin rpy="0 0 0" xyz="-0.04 0.0 0.098715"/>
     </joint>
-    <link name="rplidar_link">
+    <link name="base_laser">
         <visual>
             <geometry>
                 <mesh filename="package://nav2_minimal_description/meshes/rplidar.dae" scale="1 1 1"/>
@@ -638,12 +638,12 @@
             <inertia ixx="0.0001926666666666667" ixy="0.0" ixz="0.0" iyy="0.00012241416666666666" iyz="0.0" izz="0.00021308083333333337"/>
         </inertial>
     </link>
-    <gazebo reference="rplidar_link">
+    <gazebo reference="base_laser">
         <sensor name="rplidar" type="gpu_lidar">
             <update_rate>10.0</update_rate>
             <visualize>True</visualize>
             <always_on>true</always_on>
-            <gz_frame_id>rplidar_link</gz_frame_id>
+            <gz_frame_id>base_laser</gz_frame_id>
             <topic>scan</topic>
             <lidar>
                 <scan>
